@@ -1,0 +1,57 @@
+#!/bin/bash
+#PBS -P w97
+#PBS -q normalsl
+#PBS -l walltime=24:00:00,mem=5GB
+#PBS -l wd
+#PBS -l ncpus=1
+
+module purge
+module load pbs dot
+module use /g/data3/hh5/public/modules
+module load conda/analysis3
+module load nco
+module load ncl
+
+EXPERIMENTS=( "PHYS_TEST_RA1_PBL1_CU1" "PHYS_TEST_RA1_PBL1_CU16" "PHYS_TEST_RA1_PBL1_CU2" "PHYS_TEST_RA1_PBL1_CU3" "PHYS_TEST_RA1_PBL2_CU1" "PHYS_TEST_RA1_PBL2_CU16" "PHYS_TEST_RA1_PBL2_CU2" "PHYS_TEST_RA1_PBL2_CU3" "PHYS_TEST_RA1_PBL5_CU1" "PHYS_TEST_RA1_PBL5_CU16" "PHYS_TEST_RA1_PBL5_CU2" "PHYS_TEST_RA1_PBL5_CU3" "PHYS_TEST_RA3_PBL2_CU1" "PHYS_TEST_RA3_PBL2_CU16" "PHYS_TEST_RA3_PBL2_CU2" "PHYS_TEST_RA3_PBL5_CU16" "PHYS_TEST_RA3_PBL5_CU2" "PHYS_TEST_RA4_PBL1_CU1" "PHYS_TEST_RA4_PBL1_CU16" "PHYS_TEST_RA4_PBL1_CU2" "PHYS_TEST_RA4_PBL1_CU3" "PHYS_TEST_RA4_PBL2_CU1" "PHYS_TEST_RA4_PBL2_CU16" "PHYS_TEST_RA4_PBL2_CU2" "PHYS_TEST_RA4_PBL2_CU3" "PHYS_TEST_RA4_PBL5_CU1" "PHYS_TEST_RA4_PBL5_CU16" "PHYS_TEST_RA4_PBL5_CU2" "PHYS_TEST_RA4_PBL5_CU3" "PHYS_TEST_RA5_PBL1_CU1" "PHYS_TEST_RA5_PBL1_CU16" "PHYS_TEST_RA5_PBL1_CU2" "PHYS_TEST_RA5_PBL1_CU3" "PHYS_TEST_RA5_PBL2_CU1" "PHYS_TEST_RA5_PBL2_CU16" "PHYS_TEST_RA5_PBL2_CU2" "PHYS_TEST_RA5_PBL2_CU3" "PHYS_TEST_RA5_PBL5_CU1" "PHYS_TEST_RA5_PBL5_CU16" "PHYS_TEST_RA5_PBL5_CU2" "PHYS_TEST_RA5_PBL5_CU3" )
+
+FIRSTYEAR=2008
+LASTYEAR=2010
+FIRSTMONTH=8
+NUMMONTHYEARS=27
+EXCESS="2010-11-01"
+
+DATADIR="/g/data/hh5/tmp/WRF-CABLE/AUS44/"
+
+for ee in ${EXPERIMENTS[@]}; do
+
+    # Split wrfout files into daily files
+    scp -p `ls -1 ${DATADIR}/${ee}/WRF_output/wrfout_d01*` "${DATADIR}/scripts/tmp/"
+    cd "${DATADIR}/scripts/tmp/"
+    filelist=`ls -1 wrfout_d01_????-??-??*`
+    for ff in ${filelist[@]}; do
+      ncks -v Times,RAINC,RAINNC ${ff} RAIN_${ff}
+    done
+    cd "${DATADIR}/scripts/"
+    ncrcat `ls -1 ${DATADIR}/scripts/tmp/RAIN_wrfout*` "${DATADIR}/scripts/tmp/wrfout_d01"
+    rm `ls -1 ${DATADIR}/scripts/tmp/wrfout_d01_????-??-??*`
+    rm `ls -1 ${DATADIR}/scripts/tmp/RAIN_wrfout_d01_????-??-??*`
+    ncl split_daily.ncl
+    rm "${DATADIR}/scripts/tmp/wrfout_d01"
+    rm "${DATADIR}/scripts/tmp/wrfout_d01_${EXCESS}" # Last timestep
+
+    # Calculate daily precipitation
+    sed -e 's/PHYSMEMBER/'${ee}'/g' \
+        -e 's/FIRSTMONTH/'${FIRSTMONTH}'/g' \
+        -e 's/NUMMONTHYEARS/'${NUMMONTHYEARS}'/g' \
+        -e 's/FIRSTYEAR/'${FIRSTYEAR}'/g' \
+        -e 's/LASTYEAR/'${LASTYEAR}'/g' <template_calc_daily_mean_precip_wrf.ncl >calc_daily_mean_precip_wrf.ncl
+
+    ncl calc_daily_mean_precip_wrf.ncl
+    rm calc_daily_mean_precip_wrf.ncl
+
+    rm `ls -1 ${DATADIR}/scripts/tmp/wrfout_d01_????-??-??`
+
+done # for ee in ${EXPERIMENTS[@]}; do
+
+
+

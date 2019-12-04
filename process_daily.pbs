@@ -1,0 +1,43 @@
+#!/bin/bash
+#PBS -P w97
+#PBS -q normalsl
+#PBS -l walltime=24:00:00,mem=5GB
+#PBS -l wd
+#PBS -l ncpus=1
+
+module purge
+module load pbs dot
+module use /g/data3/hh5/public/modules
+module load conda/analysis3
+module load nco
+module load ncl
+
+EXPERIMENTS=( "PHYS_TEST_RA1_PBL1_CU1" "PHYS_TEST_RA1_PBL1_CU16" "PHYS_TEST_RA1_PBL1_CU2" "PHYS_TEST_RA1_PBL1_CU3" "PHYS_TEST_RA1_PBL2_CU1" "PHYS_TEST_RA1_PBL2_CU16" "PHYS_TEST_RA1_PBL2_CU2" "PHYS_TEST_RA1_PBL2_CU3" "PHYS_TEST_RA1_PBL5_CU1" "PHYS_TEST_RA1_PBL5_CU16" "PHYS_TEST_RA1_PBL5_CU2" "PHYS_TEST_RA1_PBL5_CU3" "PHYS_TEST_RA3_PBL2_CU1" "PHYS_TEST_RA3_PBL2_CU16" "PHYS_TEST_RA3_PBL2_CU2" "PHYS_TEST_RA3_PBL5_CU16" "PHYS_TEST_RA3_PBL5_CU2" "PHYS_TEST_RA4_PBL1_CU1" "PHYS_TEST_RA4_PBL1_CU16" "PHYS_TEST_RA4_PBL1_CU2" "PHYS_TEST_RA4_PBL1_CU3" "PHYS_TEST_RA4_PBL2_CU1" "PHYS_TEST_RA4_PBL2_CU16" "PHYS_TEST_RA4_PBL2_CU2" "PHYS_TEST_RA4_PBL2_CU3" "PHYS_TEST_RA4_PBL5_CU1" "PHYS_TEST_RA4_PBL5_CU16" "PHYS_TEST_RA4_PBL5_CU2" "PHYS_TEST_RA4_PBL5_CU3" "PHYS_TEST_RA5_PBL1_CU1" "PHYS_TEST_RA5_PBL1_CU16" "PHYS_TEST_RA5_PBL1_CU2" "PHYS_TEST_RA5_PBL1_CU3" "PHYS_TEST_RA5_PBL2_CU1" "PHYS_TEST_RA5_PBL2_CU16" "PHYS_TEST_RA5_PBL2_CU2" "PHYS_TEST_RA5_PBL2_CU3" "PHYS_TEST_RA5_PBL5_CU1" "PHYS_TEST_RA5_PBL5_CU16" "PHYS_TEST_RA5_PBL5_CU2" "PHYS_TEST_RA5_PBL5_CU3" )
+
+FIRSTYEAR=2008
+LASTYEAR=2010
+FIRSTMONTH=8
+EXCESS="2010-11"
+MEXCESS="08"
+
+DATADIR="/g/data/hh5/tmp/WRF-CABLE/AUS44/"
+
+for ee in ${EXPERIMENTS[@]}; do
+
+    # Split wrfxtrm files into monthly files
+    YEAR=${FIRSTYEAR}
+    while [ ${YEAR} -lt $((${LASTYEAR}+1)) ]; do
+      scp -p `ls -1 ${DATADIR}/${ee}/WRF_output/wrfxtrm_d01_${YEAR}-??-??*` "${DATADIR}/scripts/tmp/wrfxtrm_d01"
+      ncl split.ncl
+      YEAR=$((${YEAR}+1))
+      rm `ls -1 ${DATADIR}/scripts/tmp/wrfxtrm_d01_${YEAR}-${MEXCESS}`
+    done # while [ ${YEAR} -lt $((${LASTYEAR}+1)) ]; do
+    rm "${DATADIR}/scripts/tmp/wrfxtrm_d01_${EXCESS}" # Last timestep
+    ncrcat `ls -1 ${DATADIR}/scripts/tmp/wrfxtrm_d01_????-??` "${DATADIR}/postprocess/${ee}_WRFext_Temps_daily_${FIRSTYEAR}_${LASTYEAR}.nc"
+    rm `ls -1 ${DATADIR}/scripts/tmp/wrfxtrm_d01_????-??`
+    rm `ls -1 ${DATADIR}/scripts/tmp/wrfxtrm_d01`
+
+done # for ee in ${EXPERIMENTS[@]}; do
+
+
+

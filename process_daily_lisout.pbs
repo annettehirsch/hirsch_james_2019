@@ -1,0 +1,51 @@
+#!/bin/bash
+#PBS -P w97
+#PBS -q express
+#PBS -l walltime=24:00:00,mem=1GB
+#PBS -l wd
+#PBS -l ncpus=1
+
+module purge
+module load pbs dot
+module use /g/data3/hh5/public/modules
+module load conda/analysis3
+module load nco
+module load ncl
+
+#EXPERIMENTS=( "PHYS_TEST_RA1_PBL1_CU1" "PHYS_TEST_RA1_PBL1_CU16" "PHYS_TEST_RA1_PBL1_CU2" "PHYS_TEST_RA1_PBL1_CU3" "PHYS_TEST_RA1_PBL2_CU1" "PHYS_TEST_RA1_PBL2_CU16" "PHYS_TEST_RA1_PBL2_CU2" "PHYS_TEST_RA1_PBL2_CU3" "PHYS_TEST_RA1_PBL5_CU1" "PHYS_TEST_RA1_PBL5_CU16" "PHYS_TEST_RA1_PBL5_CU2" "PHYS_TEST_RA1_PBL5_CU3" "PHYS_TEST_RA3_PBL2_CU1" "PHYS_TEST_RA3_PBL2_CU16" "PHYS_TEST_RA3_PBL2_CU2" "PHYS_TEST_RA3_PBL5_CU16" "PHYS_TEST_RA3_PBL5_CU2" "PHYS_TEST_RA4_PBL1_CU1" "PHYS_TEST_RA4_PBL1_CU16" "PHYS_TEST_RA4_PBL1_CU2" "PHYS_TEST_RA4_PBL1_CU3" 
+EXPERIMENTS=( "PHYS_TEST_RA4_PBL2_CU1" "PHYS_TEST_RA4_PBL2_CU16"  "PHYS_TEST_RA4_PBL2_CU2" "PHYS_TEST_RA4_PBL2_CU3" "PHYS_TEST_RA4_PBL5_CU1" "PHYS_TEST_RA4_PBL5_CU16" "PHYS_TEST_RA4_PBL5_CU2" "PHYS_TEST_RA4_PBL5_CU3" "PHYS_TEST_RA5_PBL1_CU1" "PHYS_TEST_RA5_PBL1_CU16" "PHYS_TEST_RA5_PBL1_CU2" "PHYS_TEST_RA5_PBL1_CU3" "PHYS_TEST_RA5_PBL2_CU1" "PHYS_TEST_RA5_PBL2_CU16" "PHYS_TEST_RA5_PBL2_CU2" "PHYS_TEST_RA5_PBL2_CU3" "PHYS_TEST_RA5_PBL5_CU1" "PHYS_TEST_RA5_PBL5_CU16" "PHYS_TEST_RA5_PBL5_CU2" "PHYS_TEST_RA5_PBL5_CU3" )
+
+FIRSTYEAR=2008
+LASTYEAR=2010
+FIRSTMONTH=8
+NUMMONTHYEARS=27
+EXCESS="2010-11-01"
+
+DATADIR="/g/data/hh5/tmp/WRF-CABLE/AUS44/"
+
+for ee in ${EXPERIMENTS[@]}; do
+
+    # Split lisout files into daily files
+    filelist=`ls -1 ${DATADIR}/${ee}/LIS_output/LIS.CABLE.*.d01.nc`
+    for ff in ${filelist[@]}; do
+      scp -p $ff "${DATADIR}/scripts/tmp/lisout_d01"
+      ncl split_daily_lisout.ncl
+      rm "${DATADIR}/scripts/tmp/lisout_d01"
+      rm `ls -1 tmp/lisout_d01_* | tail -1` # To remove the extra timestep
+    done
+
+    # Calculate daily means
+    sed -e 's/PHYSMEMBER/'${ee}'/g' \
+        -e 's/FIRSTMONTH/'${FIRSTMONTH}'/g' \
+        -e 's/NUMMONTHYEARS/'${NUMMONTHYEARS}'/g' \
+        -e 's/FIRSTYEAR/'${FIRSTYEAR}'/g' \
+        -e 's/LASTYEAR/'${LASTYEAR}'/g' <template_calc_daily_mean_lisout.ncl >calc_daily_mean_lisout.ncl
+
+    ncl calc_daily_mean_lisout.ncl
+    rm calc_daily_mean_lisout.ncl
+    rm `ls -1 tmp/lisout_d01_*` 
+
+done # for ee in ${EXPERIMENTS[@]}; do
+
+
+
